@@ -2,6 +2,14 @@
 import websockets
 import asyncio
 import json
+import copy
+
+VAR_1 = 10
+VAR_2 = VAR_1
+
+
+print(VAR_2)
+
 
 PORT = 11000
 DB = {
@@ -44,19 +52,26 @@ async def handle_message(client_message: dict, websocket: object):
 
         client_message["CreateUser"]["password"] = client_message["CreateUser"]["password"].lower()
 
-        DB["users"][client_message["CreateUser"]["id"]] = EMPTY_USER 
-        DB["users"][client_message["CreateUser"]["id"]]["password"] = client_message["CreateUser"]["password"]
-        DB["users"][client_message["CreateUser"]["id"]]["websocket"] = websocket
-        DB["users"][client_message["CreateUser"]["id"]]["is_logged_in"] = True
+        new_user = copy.deepcopy(EMPTY_USER)
+        new_user["password"] = client_message["CreateUser"]["password"]
+        new_user["websocket"] = websocket
+        new_user["is_logged_in"] = True       
+        DB["users"][client_message["CreateUser"]["id"]] = new_user
+
         await websocket.send("User created!")    
         return
     elif "Login" in client_message:
         client_message["Login"]["id"] = client_message["Login"]["id"].lower()
         client_message["Login"]["password"] = client_message["Login"]["password"].lower()
+        
         if client_message["Login"]["id"] not in DB["users"]:
             await websocket.send("ID does not exist! Please create a user")
             return
         elif DB["users"][client_message["Login"]["id"]]["password"] == client_message["Login"]["password"]:
+            if DB["users"][client_message["Login"]["id"]]["websocket"] != None:
+                await websocket.send("User already logged in!")
+                return
+            
             DB["users"][client_message["Login"]["id"]]["websocket"] = websocket
             DB["users"][client_message["Login"]["id"]]["is_logged_in"] = True
             await websocket.send("Logged in!")    
