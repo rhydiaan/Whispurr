@@ -5,22 +5,14 @@ import json
 
 PORT = 11000
 DB = {
-    "users": {
-       "user1" : {
-            "websocket" : None,
-            "messages" : [
-                {
-                    "sender" : "id",
-                    "content" : "Hello"
-                }
-            ]
-        }
-    }
+    "users": {}
 }
 
 EMPTY_USER = {
     "websocket" : None,
-    "messages" : []
+    "messages" : [],
+    "password" : "",
+    "is_logged_in" : False
 }
 
 # DB["users"][client_message["SendMessage"]["target"]] = EMPTY_USER
@@ -39,7 +31,46 @@ def is_online(target_id: str):
 
 
 async def handle_message(client_message: dict, websocket: object):
+    
+    if "CreateUser" in client_message:
+        client_message["CreateUser"]["id"] = client_message["CreateUser"]["id"].lower()
+        if client_message["CreateUser"]["id"] in DB["users"]: # Checks if user exist already and exits if it does
+            await websocket.send("User already exists please log in or choose another id")
+            return 
+
+        if "password" not in client_message["CreateUser"]: # Checks if there was a password specified.
+            await websocket.send("Please choose a password.")
+            return
+
+        client_message["CreateUser"]["password"] = client_message["CreateUser"]["password"].lower()
+
+        DB["users"][client_message["CreateUser"]["id"]] = EMPTY_USER 
+        DB["users"][client_message["CreateUser"]["id"]]["password"] = client_message["CreateUser"]["password"]
+        DB["users"][client_message["CreateUser"]["id"]]["websocket"] = websocket
+        DB["users"][client_message["CreateUser"]["id"]]["is_logged_in"] = True
+        await websocket.send("User created!")    
+        return
+    elif "Login" in client_message:
+        client_message["Login"]["id"] = client_message["Login"]["id"].lower()
+        client_message["Login"]["password"] = client_message["Login"]["password"].lower()
+        if client_message["Login"]["id"] not in DB["users"]:
+            await websocket.send("ID does not exist! Please create a user")
+            return
+        elif DB["users"][client_message["Login"]["id"]]["password"] == client_message["Login"]["password"]:
+            DB["users"][client_message["Login"]["id"]]["websocket"] = websocket
+            DB["users"][client_message["Login"]["id"]]["is_logged_in"] = True
+            await websocket.send("Logged in!")    
+            return
+        else:
+            await websocket.send("Wrong password!")
+
+    if DB["users"][client_message["id"].lower()]["is_logged_in"] == False:
+        await websocket.send("Please login!")
+        return
+
     if "SendMessage" in client_message:
+        client_message["SendMessage"]["target"] = client_message["SendMessage"]["target"].lower()
+        client_message["id"] = client_message["id"].lower()
         if client_message["SendMessage"]["target"] not in DB["users"]:
             await websocket.send("User does not exist!")
             return
@@ -47,22 +78,10 @@ async def handle_message(client_message: dict, websocket: object):
         if is_online(client_message["SendMessage"]["target"]): # If target websocket is currently connected then send message directly to that websocket 
             await DB["users"][client_message["SendMessage"]["target"]]["websocket"].send(client_message["SendMessage"]["message"]) # Send message to user specified
         else:
-            DB["users"][client_message["SendMessage"]["target"]]["messages"].append({
-                "sender" : client_message["SendMessage"]["sender"],
+            DB["users"][client_message["SendMessage"]["target"].lower()]["messages"].append({
+                "sender" : client_message["id"],
                 "content" : client_message["SendMessage"]["message"]
             })
-    elif "CreateUser" in client_message:
-        if client_message["CreateUser"]["id"] not in DB["users"]:
-            DB["users"][client_message["CreateUser"]["id"]] = EMPTY_USER
-            DB["users"][client_message["CreateUser"]["id"]]["websocket"] = websocket
-            await websocket.send("User created!")
-    # elif "Connect" in client_message:
-    #     if client_message["Connect"]["id"] not in DB["users"]:
-    #         await websocket.send("ID does not exist! Please create a user")
-    #         return
-        
-    #     if is_online(client_message["Connect"]["id"]):
-    #         await websocket.send("Someone is already connected using that ID!")
 
 start_server = websockets.serve(listener, "localhost", PORT)
 
