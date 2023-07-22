@@ -4,12 +4,6 @@ import asyncio
 import json
 import copy
 
-VAR_1 = 10
-VAR_2 = VAR_1
-
-
-print(VAR_2)
-
 
 PORT = 11000
 DB = {
