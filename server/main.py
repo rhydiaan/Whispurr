@@ -1,8 +1,10 @@
 # Importing relevent libraries
 import websockets
+from websockets.legacy.server import WebSocketServer as ws
 import asyncio
 import json
 import copy
+import traceback
 
 # Defining global variables
 
@@ -23,13 +25,12 @@ EMPTY_USER = {
 # Main server listener function
 #########################################################################################################################
 
-async def listener(websocket, path):
+async def listener(websocket: ws, _):
     '''
     Listens on any incoming message from client to the server.
 
     Parameters:
-        websocket (object): The websocket connection to client.
-        path: Required for connection using websockets but not used anywhere.
+        websocket (ws): The websocket connection to client.
     '''
     
     print("A client just connected")
@@ -45,7 +46,6 @@ async def listener(websocket, path):
 # Message handler functions
 #########################################################################################################################
 
-
 def is_online(target_id: str):
     '''
     Checks if user is online.
@@ -55,36 +55,31 @@ def is_online(target_id: str):
     Returns:
         bool: True if the user is connected.
     '''
-
     return DB["users"][target_id]["websocket"] is not None
 
 
-def disconnect(websocket: object):
+def disconnect(websocket: ws):
     '''
     Once websocket is closed it disconnects the user
 
     Parameters:
-        websocket (object): The websocket connection to client.
+        websocket (ws): The websocket connection to client.
     '''
-
-    for i in DB["users"]:
-        for j in DB["users"][i]:
-            if websocket == DB["users"][i][j]:
-                DB["users"][i][j] = None
-                print(f"User {DB['users'][i]} has disconnected.")
-            else:
-                print("Error disconnecting user.")
+    for user in DB["users"]:
+        if websocket == DB["users"][user]["websocket"]:
+            DB["users"][user]["is_logged_in"] == False
+            DB["users"][user]["websocket"] = None
+            print(f"User {DB['users'][user]} has disconnected.")
 
 
-async def create_user(client_message: dict, websocket: object):
+async def create_user(client_message: dict, websocket: ws):
     '''
     Handles creating user.
 
     Parameters:
         client_message (dict): The message from the client to the server.
-        websocket (object): The websocket connection to client.
+        websocket (ws): The websocket connection to client.
     '''
-
     client_message["CreateUser"]["id"] = client_message["CreateUser"]["id"].lower()
     if client_message["CreateUser"]["id"] in DB["users"]: # Checks if user exist already and exits if it does
         await websocket.send("User already exists please log in or choose another id")
@@ -101,19 +96,34 @@ async def create_user(client_message: dict, websocket: object):
     new_user["websocket"] = websocket
     new_user["is_logged_in"] = True       
     DB["users"][client_message["CreateUser"]["id"]] = new_user
-    await websocket.send("User created!")    
+    await websocket.send("User created!")  
     return
 
 
-async def login(client_message: dict, websocket: object):
+async def check_mailbox(client_message: dict, websocket: ws, instruction: str):
+    '''
+    Checks if ID received messages while offline and send them if they did.
+
+    Parameters:
+        client_message (dict): The message from the client to the server.
+        websocket (ws): The websocket connection to client.
+        instruction (str): The instruction the message handler received.
+    '''
+    if not DB["users"][client_message[instruction]["id"]]["messages"]:
+        return
+
+    for message in DB["users"][client_message[instruction]["id"]]["messages"]:
+        await websocket.send(json.dumps(message))
+
+
+async def login(client_message: dict, websocket: ws):
     '''
     Handles user login.
 
     Parameters:
         client_message (dict): The message from the client to the server.
-        websocket (object): The websocket connection to client.
+        websocket (ws): The websocket connection to client.
     '''
-
     client_message["Login"]["id"] = client_message["Login"]["id"].lower()
     client_message["Login"]["password"] = client_message["Login"]["password"].lower()
     
@@ -127,21 +137,20 @@ async def login(client_message: dict, websocket: object):
         
         DB["users"][client_message["Login"]["id"]]["websocket"] = websocket
         DB["users"][client_message["Login"]["id"]]["is_logged_in"] = True
-        await websocket.send("Logged in!")    
+        await websocket.send("Logged in!")   
         return
     else:
         await websocket.send("Wrong password!")
 
 
-async def send_message(client_message: dict, websocket: object):
+async def send_message(client_message: dict, websocket: ws):
     '''
     Handles sending a message to another user.
 
     Parameters:
         client_message (dict): The message from the client to the server.
-        websocket (object): The websocket connection to client.
+        websocket (ws): The websocket connection to client.
     '''
-
     client_message["SendMessage"]["target"] = client_message["SendMessage"]["target"].lower()
     client_message["id"] = client_message["id"].lower()
     if client_message["SendMessage"]["target"] not in DB["users"]:
@@ -158,26 +167,31 @@ async def send_message(client_message: dict, websocket: object):
         })
 
 
-async def handle_message(client_message: dict, websocket: object):
+async def handle_message(client_message: dict, websocket: ws):
     '''
     The main function that handles the message from the user.
 
     Parameters:
         client_message (dict): The message from the client to the server.
-        websocket (object): The websocket connection to client.
+        websocket (ws): The websocket connection to client.
     '''
-
     if "CreateUser" in client_message:
         try: 
             await create_user(client_message, websocket)
+            await check_mailbox(client_message, websocket, "CreateUser") 
         except Exception as e:
+            traceback.print_exc()
             print(f"Error handling create user, error : {e}")
+        return
 
     elif "Login" in client_message: # Handles the login request ensuring correct id and password
         try:
             await login(client_message, websocket)
+            await check_mailbox(client_message, websocket, "Login") 
         except Exception as e:
+            traceback.print_exc()
             print(f"Error handling login user, error : {e}")
+        return
 
 
     if DB["users"][client_message["id"].lower()]["is_logged_in"] == False:
@@ -194,6 +208,7 @@ async def handle_message(client_message: dict, websocket: object):
 #########################################################################################################################
 # Starting server
 #########################################################################################################################
+
 print(f"Started server. Listening on Port: {PORT}")
 start_server = websockets.serve(listener, "localhost", PORT) 
 
