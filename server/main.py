@@ -31,6 +31,7 @@ async def listener(websocket, path):
         websocket (object): The websocket connection to client.
         path: Required for connection using websockets but not used anywhere.
     '''
+    
     print("A client just connected")
     closed = asyncio.ensure_future(websocket.wait_closed())
     closed.add_done_callback(lambda task: disconnect(websocket)) # Runs cleanup function on websocket close
@@ -54,6 +55,7 @@ def is_online(target_id: str):
     Returns:
         bool: True if the user is connected.
     '''
+
     return DB["users"][target_id]["websocket"] is not None
 
 
@@ -64,6 +66,7 @@ def disconnect(websocket: object):
     Parameters:
         websocket (object): The websocket connection to client.
     '''
+
     for i in DB["users"]:
         for j in DB["users"][i]:
             if websocket == DB["users"][i][j]:
@@ -81,6 +84,18 @@ async def create_user(client_message: dict, websocket: object):
         client_message (dict): The message from the client to the server.
         websocket (object): The websocket connection to client.
     '''
+
+    client_message["CreateUser"]["id"] = client_message["CreateUser"]["id"].lower()
+    if client_message["CreateUser"]["id"] in DB["users"]: # Checks if user exist already and exits if it does
+        await websocket.send("User already exists please log in or choose another id")
+        return 
+
+    if "password" not in client_message["CreateUser"]: # Checks if there was a password specified.
+        await websocket.send("Please choose a password.")
+        return
+
+    client_message["CreateUser"]["password"] = client_message["CreateUser"]["password"].lower()
+
     new_user = copy.deepcopy(EMPTY_USER) # Creating a copy to make a unique user in the DB
     new_user["password"] = client_message["CreateUser"]["password"]
     new_user["websocket"] = websocket
@@ -98,6 +113,7 @@ async def login(client_message: dict, websocket: object):
         client_message (dict): The message from the client to the server.
         websocket (object): The websocket connection to client.
     '''
+
     client_message["Login"]["id"] = client_message["Login"]["id"].lower()
     client_message["Login"]["password"] = client_message["Login"]["password"].lower()
     
@@ -125,6 +141,7 @@ async def send_message(client_message: dict, websocket: object):
         client_message (dict): The message from the client to the server.
         websocket (object): The websocket connection to client.
     '''
+
     client_message["SendMessage"]["target"] = client_message["SendMessage"]["target"].lower()
     client_message["id"] = client_message["id"].lower()
     if client_message["SendMessage"]["target"] not in DB["users"]:
@@ -151,23 +168,16 @@ async def handle_message(client_message: dict, websocket: object):
     '''
 
     if "CreateUser" in client_message:
-        client_message["CreateUser"]["id"] = client_message["CreateUser"]["id"].lower()
-        if client_message["CreateUser"]["id"] in DB["users"]: # Checks if user exist already and exits if it does
-            await websocket.send("User already exists please log in or choose another id")
-            return 
-
-        if "password" not in client_message["CreateUser"]: # Checks if there was a password specified.
-            await websocket.send("Please choose a password.")
-            return
-
-        client_message["CreateUser"]["password"] = client_message["CreateUser"]["password"].lower()
         try: 
             await create_user(client_message, websocket)
         except Exception as e:
             print(f"Error handling create user, error : {e}")
 
     elif "Login" in client_message: # Handles the login request ensuring correct id and password
-        await login(client_message, websocket)
+        try:
+            await login(client_message, websocket)
+        except Exception as e:
+            print(f"Error handling login user, error : {e}")
 
 
     if DB["users"][client_message["id"].lower()]["is_logged_in"] == False:
@@ -176,7 +186,10 @@ async def handle_message(client_message: dict, websocket: object):
 
 
     if "SendMessage" in client_message:
-        await send_message(client_message, websocket)
+        try:
+            await send_message(client_message, websocket)
+        except Exception as e:
+            print(f"Error handling send message, error : {e}")
 
 #########################################################################################################################
 # Starting server
