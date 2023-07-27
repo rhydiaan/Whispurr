@@ -1,6 +1,6 @@
 # Importing relevent libraries
-import websockets
 from websockets.legacy.server import WebSocketServer as ws
+import websockets
 import asyncio
 import json
 import copy
@@ -113,7 +113,7 @@ async def check_mailbox(client_message: dict, websocket: ws, instruction: str):
         return
 
     for message in DB["users"][client_message[instruction]["id"]]["messages"]:
-        await websocket.send(json.dumps(message))
+        await websocket.send(message)
 
 
 async def login(client_message: dict, websocket: ws):
@@ -157,14 +157,16 @@ async def send_message(client_message: dict, websocket: ws):
         await websocket.send("User does not exist!")
         return
 
+    message = {
+        "message" : client_message["SendMessage"]["message"],
+        "sender" : client_message["id"]
+    }
+    message_json = json.dumps(message) # Converting to json
 
     if is_online(client_message["SendMessage"]["target"]): # If target websocket is currently connected then send message directly to that websocket 
-        await DB["users"][client_message["SendMessage"]["target"]]["websocket"].send(client_message["SendMessage"]["message"]) # Send message to user specified
+        await DB["users"][client_message["SendMessage"]["target"]]["websocket"].send(message_json) # Send message to user specified
     else:
-        DB["users"][client_message["SendMessage"]["target"].lower()]["messages"].append({
-            "sender" : client_message["id"],
-            "content" : client_message["SendMessage"]["message"]
-        })
+        DB["users"][client_message["SendMessage"]["target"].lower()]["messages"].append(message_json)
 
 
 async def handle_message(client_message: dict, websocket: ws):
