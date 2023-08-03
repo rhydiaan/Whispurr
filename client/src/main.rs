@@ -1,22 +1,47 @@
+use std::io;
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
+
+#[derive(FromPrimitive)]
+enum Inputs{
+    Invalid = 0,
+    Login = 1,
+    SignUp = 2,
+}
+
 fn main() {
+
+    println!("Welcome to Whispurr! Please choose to either login or create a user. \nTo login please type \'1\' or to create a user please type \'2\' \n");
     
-    let mut a: String = String::from("a");
+    let mut choice = String::new();
 
-    let mut b: String = String::from("b");
+    io::stdin().read_line(&mut choice).expect("failed to readline");
 
-    println!("a is {} and b is {}", a, b);
+    let trimmed_choice = choice.trim();
 
-    a = String::from("c");
-    b = String::from("d");
-
-    println!("a is {} and b is {}", a, b);
-
-    fn yoink(a: &String, b: &String) {
-        println!("a is {} and b is {}", a, b);
+    if trimmed_choice.is_empty() {
+        println!("Invalid input: Empty choice");
+        return;
     }
 
-    yoink(&a, &b);
-    println!("a is {} and b is {}", a, b);
-    
-    println!("Hello, world!");
+    match FromPrimitive::from_u8(trimmed_choice.parse::<u8>().unwrap_or(0)) {
+        Some(Inputs::Login) => {
+            println!("You chose Login");
+        }
+        Some(Inputs::SignUp) => {
+            println!("You chose Sign Up");
+        }
+        _ => {
+            println!("Invalid choice");
+            main();
+        }
+    }
+
+
+
+    // match Choices {
+    //     Choices::Login => login(),
+    //     Choices::CreateUser => create_user(),
+    //     _ => println!("Not a valid choice!")
+    // }
 }
