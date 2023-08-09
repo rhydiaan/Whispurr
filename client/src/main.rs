@@ -9,10 +9,20 @@ enum Inputs{
     SignUp = 2,
 }
 
+
 fn main() {
 
-    println!("Welcome to Whispurr! Please choose to either login or create a user. \nTo login please type \'1\' or to create a user please type \'2\' \n");
+    println!("Welcome to Whispurr! Please choose to either login or create a user.");
     
+    user_choice();
+
+}
+
+
+fn user_choice() {
+
+    println!("To login please type \'1\' or to create a user please type \'2\' \n");
+
     let mut choice = String::new();
 
     io::stdin().read_line(&mut choice).expect("failed to readline");
@@ -20,28 +30,50 @@ fn main() {
     let trimmed_choice = choice.trim();
 
     if trimmed_choice.is_empty() {
-        println!("Invalid input: Empty choice");
+        println!("\nInvalid input: Empty choice");
         return;
     }
 
     match FromPrimitive::from_u8(trimmed_choice.parse::<u8>().unwrap_or(0)) {
         Some(Inputs::Login) => {
-            println!("You chose Login");
+            login(trimmed_choice);
         }
         Some(Inputs::SignUp) => {
-            println!("You chose Sign Up");
+            sign_up(trimmed_choice);
         }
         _ => {
             println!("Invalid choice");
-            main();
+            user_choice();
         }
     }
-
-
-
-    // match Choices {
-    //     Choices::Login => login(),
-    //     Choices::CreateUser => create_user(),
-    //     _ => println!("Not a valid choice!")
-    // }
 }
+
+fn login(choice: &str) {
+    println!("\nYou chose Login with the choice {}", choice);
+}
+
+fn sign_up(choice: &str) {
+    println!("\nYou chose Sign Up with the choice {}", choice);
+}
+
+// {
+// 	"CreateUser" : {
+// 		"id" : "user_id",
+// 		"password" : "password"
+// 	}
+// }
+
+// {
+// 	"Login" : {
+// 		"id" : "user_id",
+// 		"password" : "password"
+// 	}
+// }
+
+// {
+// 	"SendMessage" : {
+// 		"message" : "Hello world!",
+// 		"target" : "target_id"
+// 	},
+// 	"id" : "sender_id"
+// }
