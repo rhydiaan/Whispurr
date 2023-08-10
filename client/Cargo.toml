@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 num-traits = "0.2"
 num-derive = "0.4"
+tungstenite = "0.20.0"
+url = "2.4.0"
