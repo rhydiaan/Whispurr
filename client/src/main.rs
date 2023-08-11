@@ -4,29 +4,21 @@ use num_traits::FromPrimitive;
 use url::Url;
 use tungstenite::{connect, Message};
 
+// Enum to represent user inputs
 #[derive(FromPrimitive)]
 enum Inputs{
     Invalid = 0,
     Login = 1,
-    SignUp = 2,
+    CreateUser = 2,
 }
 
+// Struct to store user credentials
 struct User {
     username: String,
     password: String,
 }
 
-
-
-fn main() {
-
-    println!("Welcome to Whispurr! Please choose to either login or create a user.");
-    
-    user_choice();
-
-}
-
-
+// Function to handle user's choice
 fn user_choice() {
 
     println!("To login please type \'1\' or to create a user please type \'2\' \n");
@@ -42,56 +34,80 @@ fn user_choice() {
         return;
     }
 
+    // Match user's choice
     match FromPrimitive::from_u8(trimmed_choice.parse::<u8>().unwrap_or(0)) {
         Some(Inputs::Login) => {
             login(trimmed_choice);
         }
-        Some(Inputs::SignUp) => {
-            sign_up(trimmed_choice);
+        Some(Inputs::CreateUser) => {
+            create_user(trimmed_choice);
         }
         _ => {
             println!("Invalid choice");
-            user_choice();
+            user_choice(); // Allow the user to re-enter a valid choice
         }
     }
 }
 
-fn login(choice: &str) {
+// Function to get user's credentials
+fn get_user_credentials(user_choice: u8) -> User {
+    
+    // Match if user is logging in or creating a user
+    match FromPrimitive::from_u8(user_choice) { 
+        Some(Inputs::Login) => {
+            println!("To login please type your username:");
+        }
+        Some(Inputs::CreateUser) => {
+            println!("To create a user please type your username:");
+        }
+        _ => {
+            println!("Invalid choice");
+        }
+    }
 
-    println!("To login please type your username:");
+    let mut username = String::new(); // Getting username
 
-    let mut username = String::new();
-
-    io::stdin().read_line(&mut username).expect("failed to readline");
+    io::stdin().read_line(&mut username).expect("failed to readline"); // Getting user input
 
     let trimmed_username = username.trim();
 
     if trimmed_username.is_empty() {
         println!("\nInvalid input: Empty username");
-        return;
+        main(); // Allow the user to re-enter a valid username
     }
 
-    println!("And now password:");
+    println!("And now password:"); // Getting user password
 
-    let mut password = String::new();
+    let mut password = String::new(); // Defining password to empty String
 
-    io::stdin().read_line(&mut password).expect("failed to readline");
+    io::stdin().read_line(&mut password).expect("failed to readline"); // Getting user input
 
     let trimmed_password = password.trim();
 
     if trimmed_password.is_empty() {
         println!("\nInvalid input: Empty password");
-        return;
+        main(); // Allow the user to re-enter a valid password
     }
 
-    let user = User {
+    let user = User { // Creating struct from user inputs
         username: String::from(trimmed_username),
         password: String::from(trimmed_password),
     };
 
+    user // Returning user struct
+
+}
+
+// Function to handle login
+fn login(choice: &str) {
+
+    let user = get_user_credentials(1); // Getting user credentials 
+
+    // Connecting to websocket server
     let (mut socket, _) = connect(
         Url::parse("wss://localhost:11000").unwrap()
     ).expect("Can't connect");
+
     println!("\nYou chose Login with the choice {}", choice);
     
     let message = format!(
@@ -103,51 +119,25 @@ fn login(choice: &str) {
         }}"#, user.username, user.password);
     
 
-    let _ = socket.send(Message::Text(message));
-    loop {
+    let _ = socket.send(Message::Text(message)); // Sending login request to server
+
+    loop { // Listening for anything coming through the websocket
         let msg = socket.read().expect("Error reading message");
         println!("Received: {}", msg);
     }
     
 }
 
-fn sign_up(choice: &str) {
+// Function to handle user creation
+fn create_user(choice: &str) {
 
-    println!("To create a user please type your username:");
+    let user = get_user_credentials(2); // Getting user credentials 
 
-    let mut username = String::new();
-
-    io::stdin().read_line(&mut username).expect("failed to readline");
-
-    let trimmed_username = username.trim();
-
-    if trimmed_username.is_empty() {
-        println!("\nInvalid input: Empty username");
-        return;
-    }
-
-    println!("And now password:");
-
-    let mut password = String::new();
-
-    io::stdin().read_line(&mut password).expect("failed to readline");
-
-    let trimmed_password = password.trim();
-
-    if trimmed_password.is_empty() {
-        println!("\nInvalid input: Empty password");
-        return;
-    }
-
-    let user = User {
-        username: String::from(trimmed_username),
-        password: String::from(trimmed_password),
-    };
-
-
+    // Connecting to websocket server
     let (mut socket, _) = connect(
         Url::parse("wss://localhost:11000").unwrap()
     ).expect("Can't connect");
+
     println!("\nYou chose Sign Up with the choice {}", choice);
     
     let message = format!(
@@ -158,23 +148,26 @@ fn sign_up(choice: &str) {
             }}
         }}"#, user.username, user.password);
     
+    let _ = socket.send(Message::Text(message)); // Sending user creation request to server
 
-    let _ = socket.send(Message::Text(message));
-    loop {
+    loop { // Listening for anything coming through the websocket
         let msg = socket.read().expect("Error reading message");
         println!("Received: {}", msg);
     }
     
 }
 
+fn main() {
 
-// {
-// 	"Login" : {
-// 		"id" : "user_id",
-// 		"password" : "password"
-// 	}
-// }
+    println!("Welcome to Whispurr! Please choose to either login or create a user.");
+    
+    user_choice();
 
+}
+
+// TODO: 
+//  - Handle message sending logic
+//  - Tidy up recieving messages
 // {
 // 	"SendMessage" : {
 // 		"message" : "Hello world!",
