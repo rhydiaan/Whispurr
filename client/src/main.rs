@@ -50,10 +50,10 @@ fn user_choice() {
 }
 
 // Function to get user's credentials
-fn get_user_credentials(user_choice: u8) -> User {
+fn get_user_credentials(choice: u8) -> User {
     
     // Match if user is logging in or creating a user
-    match FromPrimitive::from_u8(user_choice) { 
+    match FromPrimitive::from_u8(choice) { 
         Some(Inputs::Login) => {
             println!("To login please type your username:");
         }
@@ -73,7 +73,7 @@ fn get_user_credentials(user_choice: u8) -> User {
 
     if trimmed_username.is_empty() {
         println!("\nInvalid input: Empty username");
-        main(); // Allow the user to re-enter a valid username
+        user_choice(); // Allow the user to re-enter a valid username
     }
 
     println!("And now password:"); // Getting user password
@@ -86,22 +86,20 @@ fn get_user_credentials(user_choice: u8) -> User {
 
     if trimmed_password.is_empty() {
         println!("\nInvalid input: Empty password");
-        main(); // Allow the user to re-enter a valid password
+        user_choice(); // Allow the user to re-enter a valid password
     }
 
-    let user = User { // Creating struct from user inputs
+    User { // Creating struct from user inputs and returning the struct
         username: String::from(trimmed_username),
         password: String::from(trimmed_password),
-    };
-
-    user // Returning user struct
+    }
 
 }
 
 // Function to handle login
 fn login(choice: &str) {
 
-    let user = get_user_credentials(1); // Getting user credentials 
+    let user = get_user_credentials(choice.parse::<u8>().expect("Error parsing choice")); // Getting user credentials 
 
     // Connecting to websocket server
     let (mut socket, _) = connect(
@@ -131,7 +129,7 @@ fn login(choice: &str) {
 // Function to handle user creation
 fn create_user(choice: &str) {
 
-    let user = get_user_credentials(2); // Getting user credentials 
+    let user = get_user_credentials(choice.parse::<u8>().expect("Error parsing choice")); // Getting user credentials 
 
     // Connecting to websocket server
     let (mut socket, _) = connect(
